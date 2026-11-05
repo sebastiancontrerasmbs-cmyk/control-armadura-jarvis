@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JARVIS HUD - MK I</title>
+    <!-- Tailwind CSS para la estructura responsiva -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Tipografía de consola futurista */
+        @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
+        
+        body {
+            font-family: 'Share Tech Mono', monospace;
+            background-color: #050a0f; /* Fondo oscuro profundo */
+            background-image: 
+                linear-gradient(rgba(0, 255, 234, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 255, 234, 0.03) 1px, transparent 1px);
+            background-size: 20px 20px;
+            color: #00ffea;
+            overflow-x: hidden;
+        }
+
+        /* Efectos de resplandor (Glow) */
+        .glow-cyan {
+            box-shadow: 0 0 10px rgba(0, 255, 234, 0.5), inset 0 0 10px rgba(0, 255, 234, 0.2);
+            border: 1px solid #00ffea;
+        }
+        
+        .glow-cyan-text {
+            text-shadow: 0 0 8px rgba(0, 255, 234, 0.8);
+        }
+
+        .glow-red {
+            box-shadow: 0 0 15px rgba(255, 51, 102, 0.6), inset 0 0 15px rgba(255, 51, 102, 0.3);
+            border: 1px solid #ff3366;
+        }
+
+        .glow-red-text {
+            text-shadow: 0 0 8px rgba(255, 51, 102, 0.8);
+            color: #ff3366;
+        }
+
+        /* Botones tácticos */
+        .btn-tactical {
+            background: rgba(0, 255, 234, 0.1);
+            transition: all 0.2s ease-in-out;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+        .btn-tactical:hover {
+            background: rgba(0, 255, 234, 0.3);
+            box-shadow: 0 0 15px rgba(0, 255, 234, 0.8);
+        }
+        .btn-tactical:active {
+            transform: scale(0.95);
+        }
+
+        .btn-danger {
+            background: rgba(255, 51, 102, 0.1);
+            transition: all 0.2s;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+        }
+        .btn-danger:hover {
+            background: rgba(255, 51, 102, 0.3);
+            box-shadow: 0 0 20px rgba(255, 51, 102, 0.9);
+        }
+        .btn-danger:active {
+            transform: scale(0.95);
+        }
+
+        /* Deslizadores futuristas (Sliders) */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        input[type=range]:focus {
+            outline: none;
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 6px;
+            cursor: pointer;
+            background: rgba(0, 255, 234, 0.2);
+            border: 1px solid #00ffea;
+            border-radius: 2px;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            height: 20px;
+            width: 10px;
+            border-radius: 2px;
+            background: #00ffea;
+            cursor: pointer;
+            -webkit-appearance: none;
+            margin-top: -8px;
+            box-shadow: 0 0 10px #00ffea;
+        }
+
+        /* Consola de comandos */
+        #terminal-log {
+            height: 150px;
+            overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: #00ffea #050a0f;
+        }
+        #terminal-log::-webkit-scrollbar {
+            width: 5px;
+        }
+        #terminal-log::-webkit-scrollbar-thumb {
+            background: #00ffea;
+        }
+        
+        .log-entry { margin-bottom: 4px; }
+        .log-time { color: #888; margin-right: 8px; }
+        .log-tx { color: #00ffea; }
+        .log-sys { color: #ffeb3b; }
+        .log-err { color: #ff3366; }
+
+        /* Scanline Overlay (Efecto de pantalla antigua/HUD) */
+        .scanlines {
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0) 50%, rgba(0,0,0,0.1) 50%, rgba(0,0,0,0.1));
+            background-size: 100% 4px;
+            pointer-events: none;
+            z-index: 50;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col p-4 relative">
+    <div class="scanlines"></div>
+
+    <!-- ENCABEZADO Y ESTADO DE ENLACE -->
+    <header class="w-full max-w-4xl mx-auto flex flex-col md:flex-row justify-between items-center mb-6 border-b border-cyan-500/50 pb-4 z-10">
+        <div>
+            <h1 class="text-3xl font-bold glow-cyan-text mb-1">[ SISTEMA JARVIS - MK I ]</h1>
+            <p class="text-sm opacity-70">CONTROL DE TRACCIÓN MULTINÚCLEO - ESP32-S3</p>
+        </div>
+        
+        <div class="mt-4 md:mt-0 flex flex-col items-end">
+            <button id="btnConnect" class="btn-tactical glow-cyan px-6 py-2 rounded font-bold mb-2">
+                INICIAR ENLACE BLE
+            </button>
+            <div id="statusIndicator" class="text-sm">
+                ESTADO: <span class="glow-red-text">DESCONECTADO</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- PANELES DE CONTROL DE MOTORES -->
+    <main class="w-full max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-6 z-10 flex-grow">
+        
+        <!-- PANEL MOTOR 1 (IZQUIERDO) -->
+        <section class="glow-cyan p-6 bg-cyan-950/20 backdrop-blur-sm rounded-lg flex flex-col relative">
+            <div class="absolute top-0 right-0 p-2 text-xs opacity-50">CANAL 0 / IN1-IN2</div>
+            <h2 class="text-xl font-bold mb-4 glow-cyan-text border-b border-cyan-800 pb-2">MOTOR 1 [IZQ]</h2>
+            
+            <!-- Telemetría de velocidad -->
+            <div class="flex justify-between items-end mb-2">
+                <span class="text-sm">POTENCIA ASIGNADA:</span>
+                <span class="text-2xl font-bold" id="valM1">100%</span>
+            </div>
+            <input type="range" id="sliderM1" min="1" max="100" value="100" class="mb-6">
+
+            <!-- Controles de dirección -->
+            <div class="grid grid-cols-2 gap-3 mt-auto">
+                <button onclick="enviarComandoM1('adelante')" class="btn-tactical glow-cyan py-3 rounded">
+                    &#9650; AVANZAR
+                </button>
+                <button onclick="enviarComandoM1('atras')" class="btn-tactical glow-cyan py-3 rounded">
+                    &#9660; REVERSA
+                </button>
+                <button onclick="enviarComandoDirecto('motor 1 stop')" class="col-span-2 btn-tactical glow-cyan py-2 rounded text-sm opacity-80 border-dashed border">
+                    NEUTRALIZAR M1
+                </button>
+            </div>
+        </section>
+
+        <!-- PANEL MOTOR 2 (DERECHO) -->
+        <section class="glow-cyan p-6 bg-cyan-950/20 backdrop-blur-sm rounded-lg flex flex-col relative">
+            <div class="absolute top-0 right-0 p-2 text-xs opacity-50">CANAL 1 / IN3-IN4</div>
+            <h2 class="text-xl font-bold mb-4 glow-cyan-text border-b border-cyan-800 pb-2">MOTOR 2 [DER]</h2>
+            
+            <!-- Telemetría de velocidad -->
+            <div class="flex justify-between items-end mb-2">
+                <span class="text-sm">POTENCIA ASIGNADA:</span>
+                <span class="text-2xl font-bold" id="valM2">100%</span>
+            </div>
+            <input type="range" id="sliderM2" min="1" max="100" value="100" class="mb-6">
+
+            <!-- Controles de dirección -->
+            <div class="grid grid-cols-2 gap-3 mt-auto">
+                <button onclick="enviarComandoM2('adelante')" class="btn-tactical glow-cyan py-3 rounded">
+                    &#9650; AVANZAR
+                </button>
+                <button onclick="enviarComandoM2('atras')" class="btn-tactical glow-cyan py-3 rounded">
+                    &#9660; REVERSA
+                </button>
+                <button onclick="enviarComandoDirecto('motor 2 stop')" class="col-span-2 btn-tactical glow-cyan py-2 rounded text-sm opacity-80 border-dashed border">
+                    NEUTRALIZAR M2
+                </button>
+            </div>
+        </section>
+
+        <!-- FRENO DE EMERGENCIA GLOBAL -->
+        <section class="col-span-1 md:col-span-2 mt-2 z-10">
+            <button onclick="enviarComandoDirecto('stop')" class="w-full btn-danger glow-red py-5 rounded-lg text-2xl font-black text-white bg-red-900/30">
+                &#9888; PARADA DE EMERGENCIA TOTAL &#9888;
+            </button>
+        </section>
+
+        <!-- TERMINAL LOG -->
+        <section class="col-span-1 md:col-span-2 glow-cyan p-4 bg-black/60 backdrop-blur-md rounded-lg mt-2 z-10">
+            <h3 class="text-sm text-cyan-700 mb-2 border-b border-cyan-900 pb-1">REGISTRO DE TRANSMISIÓN BLE</h3>
+            <div id="terminal-log" class="font-mono text-sm">
+                <!-- Los logs aparecerán aquí -->
+                <div class="log-entry"><span class="log-time">[SYS]</span><span class="log-sys">Terminal inicializada. Esperando enlace...</span></div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="mt-8 text-center text-xs opacity-50 z-10 pb-4">
+        INDUSTRIAS STARK DE TEMU &copy; 2026 // PROTOCOLO DE CONEXIÓN SEGURA
+    </footer>
+
+    <!-- LOGICA DE CONTROL BLUETOOTH -->
+    <script>
+        // UUIDs Definidos en el ESP32
+        const SERVICE_UUID = "4fafc201-1fb5-459e-8fcc-c5c9c331914b";
+        const CHARACTERISTIC_UUID = "beb5483e-36e1-4688-b7f5-ea07361b26a8";
+        
+        let bleDevice = null;
+        let bleCharacteristic = null;
+
+        // Referencias a la UI
+        const btnConnect = document.getElementById('btnConnect');
+        const statusIndicator = document.getElementById('statusIndicator');
+        const terminalLog = document.getElementById('terminal-log');
+        
+        const sliderM1 = document.getElementById('sliderM1');
+        const valM1 = document.getElementById('valM1');
+        
+        const sliderM2 = document.getElementById('sliderM2');
+        const valM2 = document.getElementById('valM2');
+
+        // Actualizar visualización de Sliders
+        sliderM1.addEventListener('input', () => { valM1.innerText = sliderM1.value + "%"; });
+        sliderM2.addEventListener('input', () => { valM2.innerText = sliderM2.value + "%"; });
+
+        // Función para agregar mensajes a la terminal
+        function log(msg, type = 'sys') {
+            const now = new Date();
+            const timeStr = String(now.getHours()).padStart(2, '0') + ":" + 
+                            String(now.getMinutes()).padStart(2, '0') + ":" + 
+                            String(now.getSeconds()).padStart(2, '0');
+            
+            const div = document.createElement('div');
+            div.className = 'log-entry';
+            
+            let colorClass = 'log-sys';
+            if (type === 'tx') colorClass = 'log-tx';
+            if (type === 'err') colorClass = 'log-err';
+
+            div.innerHTML = `<span class="log-time">[${timeStr}]</span><span class="${colorClass}">${msg}</span>`;
+            terminalLog.appendChild(div);
+            
+            // Auto-scroll al fondo
+            terminalLog.scrollTop = terminalLog.scrollHeight;
+        }
+
+        // Proceso de conexión Web Bluetooth
+        btnConnect.addEventListener('click', async () => {
+            if (bleDevice && bleDevice.gatt.connected) {
+                // Si ya está conectado, desconectar
+                bleDevice.gatt.disconnect();
+                return;
+            }
+
+            try {
+                log("Escaneando frecuencias buscando JARVIS_MK_I...", "sys");
+                statusIndicator.innerHTML = 'ESTADO: <span class="text-yellow-400 glow-cyan-text">ESCANEANDO...</span>';
+
+                bleDevice = await navigator.bluetooth.requestDevice({
+                    filters: [{ name: 'JARVIS_MK_I' }],
+                    optionalServices: [SERVICE_UUID]
+                });
+
+                // Evento por si la armadura se apaga o aleja
+                bleDevice.addEventListener('gattserverdisconnected', onDisconnected);
+
+                log("Dispositivo encontrado. Estableciendo enlace GATT...", "sys");
+                
+                const server = await bleDevice.gatt.connect();
+                const service = await server.getPrimaryService(SERVICE_UUID);
+                bleCharacteristic = await service.getCharacteristic(CHARACTERISTIC_UUID);
+                
+                statusIndicator.innerHTML = 'ESTADO: <span class="text-cyan-400 glow-cyan-text text-shadow">ENLACE ESTABLECIDO</span>';
+                btnConnect.innerText = "CORTAR ENLACE";
+                btnConnect.classList.replace("glow-cyan", "glow-red");
+                
+                log("¡Enlace completado! Armadura lista para recibir órdenes.", "sys");
+
+            } catch (error) {
+                console.error(error);
+                log("Error de conexión: " + error.message, "err");
+                statusIndicator.innerHTML = 'ESTADO: <span class="glow-red-text">DESCONECTADO</span>';
+            }
+        });
+
+        function onDisconnected() {
+            log("Conexión perdida con la armadura. Reintente el enlace.", "err");
+            statusIndicator.innerHTML = 'ESTADO: <span class="glow-red-text">DESCONECTADO</span>';
+            btnConnect.innerText = "INICIAR ENLACE BLE";
+            btnConnect.classList.replace("glow-red", "glow-cyan");
+            bleCharacteristic = null;
+        }
+
+        // Función central para enviar los datos como UTF-8
+        async function enviarComandoDirecto(comandoTexto) {
+            if (!bleCharacteristic) {
+                log("Transmisión fallida: No hay enlace con la armadura.", "err");
+                return;
+            }
+
+            try {
+                // Codificar String a buffer de bytes UTF-8
+                let encoder = new TextEncoder('utf-8');
+                let data = encoder.encode(comandoTexto);
+                
+                // Enviar al ESP32
+                await bleCharacteristic.writeValue(data);
+                log("TX: " + comandoTexto, "tx");
+            } catch (error) {
+                log("Error al enviar comando: " + error, "err");
+            }
+        }
+
+        // Funciones auxiliares para construir el string con la velocidad de los sliders
+        function enviarComandoM1(direccion) {
+            // direccion debe ser 'adelante' o 'atras'
+            const velocidad = sliderM1.value;
+            const comando = `motor 1 ${direccion} ${velocidad}`;
+            enviarComandoDirecto(comando);
+        }
+
+        function enviarComandoM2(direccion) {
+            const velocidad = sliderM2.value;
+            const comando = `motor 2 ${direccion} ${velocidad}`;
+            enviarComandoDirecto(comando);
+        }
+
+    </script>
+</body>
+</html>

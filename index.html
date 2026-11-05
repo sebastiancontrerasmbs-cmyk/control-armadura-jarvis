@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JARVIS Terminal de Combate</title>
+    <style>
+        body { background-color: #0a0a0a; color: #00ffea; font-family: 'Courier New', Courier, monospace; text-align: center; padding: 50px; }
+        button { background-color: #00ffea; color: #0a0a0a; border: none; padding: 15px 30px; font-size: 18px; font-weight: bold; cursor: pointer; margin: 10px; border-radius: 5px; }
+        button:hover { background-color: #00ccbb; }
+        input { padding: 15px; font-size: 16px; width: 300px; border: 1px solid #00ffea; background: #222; color: #00ffea; margin-bottom: 20px; }
+        #estado { margin-top: 20px; font-style: italic; color: #ff3366; }
+    </style>
+</head>
+<body>
+
+    <h1>[ SISTEMA JARVIS - MK I ]</h1>
+    <button id="btnConectar">ENLAZAR ARMADURA</button>
+    
+    <br><br>
+    <input type="text" id="inputComando" placeholder="Ej: motor 1 adelante 80">
+    <br>
+    <button id="btnEnviar">EJECUTAR ORDEN</button>
+    <button id="btnStop" style="background-color: #ff3366; color: white;">PARADA DE EMERGENCIA</button>
+
+    <div id="estado">Estado: Desconectado</div>
+
+    <script>
+        const SERVICE_UUID = "4fafc201-1fb5-459e-8fcc-c5c9c331914b";
+        const CHARACTERISTIC_UUID = "beb5483e-36e1-4688-b7f5-ea07361b26a8";
+        
+        let bleDevice;
+        let bleCharacteristic;
+
+        document.getElementById('btnConectar').addEventListener('click', async () => {
+            try {
+                document.getElementById('estado').innerText = "Escaneando frecuencias...";
+                bleDevice = await navigator.bluetooth.requestDevice({
+                    filters: [{ name: 'JARVIS_MK_I' }],
+                    optionalServices: [SERVICE_UUID]
+                });
+
+                const server = await bleDevice.gatt.connect();
+                const service = await server.getPrimaryService(SERVICE_UUID);
+                bleCharacteristic = await service.getCharacteristic(CHARACTERISTIC_UUID);
+                
+                document.getElementById('estado').innerText = "Estado: ENLACE ESTABLECIDO";
+                document.getElementById('estado').style.color = "#00ffea";
+            } catch (error) {
+                console.error(error);
+                document.getElementById('estado').innerText = "Fallo de conexión. Revise consola.";
+            }
+        });
+
+        async function enviarComando(texto) {
+            if (!bleCharacteristic) {
+                alert("Primero debe enlazar la armadura, señor.");
+                return;
+            }
+            let encoder = new TextEncoder('utf-8');
+            await bleCharacteristic.writeValue(encoder.encode(texto));
+        }
+
+        document.getElementById('btnEnviar').addEventListener('click', () => {
+            let cmd = document.getElementById('inputComando').value;
+            enviarComando(cmd);
+        });
+
+        document.getElementById('btnStop').addEventListener('click', () => {
+            enviarComando("stop");
+            document.getElementById('inputComando').value = "stop";
+        });
+    </script>
+
+</body>
+</html>

@@ -34,9 +34,12 @@
 
         document.getElementById('btnConectar').addEventListener('click', async () => {
             try {
-                document.getElementById('estado').innerText = "Escaneando frecuencias...";
+                document.getElementById('estado').innerText = "Escaneando frecuencia JARVIS_E2AF30...";
+                document.getElementById('estado').style.color = "#ffcc00";
+                
                 bleDevice = await navigator.bluetooth.requestDevice({
-                    filters: [{ name: 'JARVIS_MK_I' }],
+                    // --- FILTRO ACTUALIZADO A LA MAC DE SU ESP32-S3 ---
+                    filters: [{ name: 'JARVIS_E2AF30' }],
                     optionalServices: [SERVICE_UUID]
                 });
 
@@ -48,7 +51,8 @@
                 document.getElementById('estado').style.color = "#00ffea";
             } catch (error) {
                 console.error(error);
-                document.getElementById('estado').innerText = "Fallo de conexión. Revise consola.";
+                document.getElementById('estado').innerText = "Fallo de conexión: " + error.message;
+                document.getElementById('estado').style.color = "#ff3366";
             }
         });
 
@@ -57,8 +61,13 @@
                 alert("Primero debe enlazar la armadura, señor.");
                 return;
             }
-            let encoder = new TextEncoder('utf-8');
-            await bleCharacteristic.writeValue(encoder.encode(texto));
+            try {
+                let encoder = new TextEncoder('utf-8');
+                await bleCharacteristic.writeValue(encoder.encode(texto));
+            } catch (error) {
+                console.error("Error al enviar:", error);
+                document.getElementById('estado').innerText = "Error enviando orden. ¿Se desconectó?";
+            }
         }
 
         document.getElementById('btnEnviar').addEventListener('click', () => {

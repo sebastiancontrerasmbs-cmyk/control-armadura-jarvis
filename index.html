@@ -191,7 +191,7 @@
             </div>
         </div>
 
-        <!-- Control de Motores (Barrera / Puerta) -->
+        <!-- Control de Motores -->
         <div class="section-title">Acciones de Mecanismo</div>
         <div class="grid-controls">
             <button class="btn-success" onclick="enviarComando('barrera_abrir')">Abrir Barrera</button>
@@ -216,10 +216,10 @@
                 try {
                     document.getElementById('logEstado').innerText = "Buscando sistema del parqueadero...";
                     
-                    // --- FILTRO ESTRICTO: SOLO BUSCA LA PLACA ESP32 ---
+                    // --- FILTRO DESTRUCTOR: IGNORA TODO LO QUE NO TENGA ESTE PREFIJO ---
                     bluetoothDevice = await navigator.bluetooth.requestDevice({
                         filters: [{
-                            name: 'PARQUEADERO_STARK'
+                            namePrefix: 'PARQUEADERO' 
                         }],
                         optionalServices: [SERVICE_UUID]
                     });
@@ -228,7 +228,6 @@
                     const service = await server.getPrimaryService(SERVICE_UUID);
                     bluetoothCharacteristic = await service.getCharacteristic(CHARACTERISTIC_UUID);
 
-                    // Preparación para escuchar los sensores en el futuro
                     await bluetoothCharacteristic.startNotifications();
                     bluetoothCharacteristic.addEventListener('characteristicvaluechanged', manejarDatosSensor);
 

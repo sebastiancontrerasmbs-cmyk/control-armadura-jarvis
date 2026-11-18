@@ -192,13 +192,13 @@
         </div>
 
         <!-- Control de Motores (Barrera / Puerta) -->
-        <div class="section-title">Accriones de Mecanismo</div>
+        <div class="section-title">Acciones de Mecanismo</div>
         <div class="grid-controls">
             <button class="btn-success" onclick="enviarComando('barrera_abrir')">Abrir Barrera</button>
             <button class="btn-danger" onclick="enviarComando('barrera_cerrar')">Cerrar Barrera</button>
         </div>
 
-        <button class="btn-secondary" onclick="enviarComando('sistema_reset')چا">Reiniciar Contadores</button>
+        <button class="btn-secondary" onclick="enviarComando('sistema_reset')">Detener Todo</button>
 
         <!-- Registro de Actividad -->
         <div class="section-title" style="margin-top: 16px;">Consola de Estado</div>
@@ -206,7 +206,6 @@
     </div>
 
     <script>
-        // UUIDs simulados para Web Bluetooth (Ajustar al servicio de su ESP32 si aplica)
         let bluetoothDevice;
         let bluetoothCharacteristic;
         const SERVICE_UUID = "4fafc201-1fb5-459e-8fcc-c5c9c331914b";
@@ -215,9 +214,13 @@
         async function toggleConexion() {
             if (!bluetoothDevice || !bluetoothDevice.gatt.connected) {
                 try {
-                    document.getElementById('logEstado').innerText = "Buscando dispositivo Bluetooth...";
+                    document.getElementById('logEstado').innerText = "Buscando sistema del parqueadero...";
+                    
+                    // --- FILTRO ESTRICTO: SOLO BUSCA LA PLACA ESP32 ---
                     bluetoothDevice = await navigator.bluetooth.requestDevice({
-                        acceptAllDevices: true,
+                        filters: [{
+                            name: 'PARQUEADERO_STARK'
+                        }],
                         optionalServices: [SERVICE_UUID]
                     });
 
@@ -225,7 +228,7 @@
                     const service = await server.getPrimaryService(SERVICE_UUID);
                     bluetoothCharacteristic = await service.getCharacteristic(CHARACTERISTIC_UUID);
 
-                    // Escuchar notificaciones del sensor de entrada/salida
+                    // Preparación para escuchar los sensores en el futuro
                     await bluetoothCharacteristic.startNotifications();
                     bluetoothCharacteristic.addEventListener('characteristicvaluechanged', manejarDatosSensor);
 
@@ -252,7 +255,7 @@
 
         async function enviarComando(comando) {
             if (!bluetoothCharacteristic) {
-                alert("Primero debe conectar el dispositivo vía Bluetooth.");
+                alert("Primero debe conectar el sistema vía Bluetooth.");
                 return;
             }
             try {
@@ -267,7 +270,6 @@
 
         function manejarDatosSensor(event) {
             const value = new TextDecoder().decode(event.target.value);
-            // Formato esperado desde la ESP32: "E:5,S:3" (Entradas y Salidas)
             document.getElementById('logEstado').innerText = "Datos recibidos: " + value;
             
             if(value.includes("E:") && value.includes("S:")) {
